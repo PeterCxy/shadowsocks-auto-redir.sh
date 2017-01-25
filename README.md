@@ -39,7 +39,7 @@ Link itself to `/opt` and install the systemd unit
 Configuration
 ---
 
-Now, put your Shadowsocks configuration file into `/etc/shadowsocks/`, for examplem, `/etc/shadowsocks/config.json`, and then run
+Now, put your Shadowsocks configuration file into `/etc/shadowsocks/`, for example, `/etc/shadowsocks/config.json`, and then run
 
 ```bash
 # Execute as ROOT
