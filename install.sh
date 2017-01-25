@@ -14,6 +14,7 @@ unlink() {
 update() {
     rm -rf /etc/systemd/system/shadowsocks-auto-redir@.service
     cp $PWD/systemd/shadowsocks-auto-redir@.service /etc/systemd/system/shadowsocks-auto-redir@.service
+    systemctl daemon-reload
 }
 
 # MUST be run as root
