@@ -64,6 +64,8 @@ In addition, this script supports some exta fields (under `ss_redir_options`) in
 `bypass_preset`: Include a predefined set of IPs to which traffic should not go through Shadowsocks proxy (currently only `chnroute` available which excludes all Chinese Mainland IPs)
 `ota`: Enable One-Time Authentication or not.
 
+__NOTE: This script does nothing to resolve DNS poisoning. If your network is subject to DNS poisoning, an anti-poisoning DNS server should be used or set up.__
+
 Updating
 ---
 
