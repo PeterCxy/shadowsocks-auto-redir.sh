@@ -33,7 +33,8 @@ Link itself to `/opt` and install the systemd unit
 
 ```bash
 # Execute as ROOT
-./install.sh link
+./install-systemd.sh link # for systemd
+./install-openrc.sh link # for openrc
 ```
 
 Configuration
