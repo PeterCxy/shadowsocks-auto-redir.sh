@@ -1,4 +1,7 @@
 #!/bin/bash
+
+CONFIG_PATH=$2
+
 echoerr() { echo "$@" 1>&2; }
 
 do_iptables() {
@@ -63,7 +66,7 @@ apply_rules() {
     BYPASS_PRESET=`jq -r ".ss_redir_options.bypass_preset" $CONFIG_PATH`
 
     if [[ "$BYPASS_PRESET" == "chnroute" ]]; then
-        for ip in `cat $SCRIPT_PATH/routes/chnroute.txt`; do
+        for ip in `cat /opt/shadowsocks-auto-redir/routes/chnroute.txt`; do
             do_ipset add shadowsocks $ip
         done
     fi
@@ -73,7 +76,7 @@ apply_rules() {
     # Redirect to ss-redir port
     LOCAL_PORT=`jq -r ".local_port" $CONFIG_PATH`
 
-    do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $2
+    do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $LOCAL_PORT
     do_iptables -t nat -A OUTPUT -p tcp -j SHADOWSOCKS
 }
 
@@ -87,3 +90,4 @@ if [[ "$1" == "apply" ]]; then
     apply_rules
 elif [[ "$1" == "clear" ]]; then
     clear_rules
+fi
