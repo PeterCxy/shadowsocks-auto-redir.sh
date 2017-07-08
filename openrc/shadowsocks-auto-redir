@@ -1,0 +1,62 @@
+#!/sbin/openrc-run
+# Copyright 1999-2015 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+
+SS_CONFIG_BASENAME="/etc/shadowsocks-libev/redir.json"
+SS_ROUTING_BASENAME="/opt/shadowsocks-auto-redir/routing"
+SS_COMMAND="/usr/bin/ss-redir"
+
+SS_PIDFILE_BASENAME="/run/shadowsocks-redir.pid"
+
+depend() {
+    need net
+}
+
+checkconfig() {
+
+    SS_SVCNAME="${RC_SVCNAME#*.}"
+    case ${SS_SVCNAME} in
+    v4)
+        SS_CONFIG=$(echo ${SS_CONFIG_BASENAME} | sed -e 's/\.json/.v4.json/')
+        SS_PIDFILE=$(echo ${SS_PIDFILE_BASENAME} | sed -e 's/\.pid/.v4.pid/')
+        SS_ROUTING="${SS_ROUTING_BASENAME}.v4"
+        return 0
+	;;
+    v6)
+        SS_CONFIG=$(echo ${SS_CONFIG_BASENAME} | sed -e 's/\.json/.v6.json/')
+        SS_PIDFILE=$(echo ${SS_PIDFILE_BASENAME} | sed -e 's/\.pid/.v6.pid/')
+        SS_ROUTING="${SS_ROUTING_BASENAME}.v6"
+        return 0
+	;;
+    *)
+    	eerror "please choose to run in v4 or v6 mode"
+    	eerror "  v4: rc-update add shadowsocks-auto-redir.v4 default"
+    	eerror "  v6: rc-update add shadowsocks-auto-redir.v6 default"
+        return 1
+    	;;
+    esac
+
+    if [ ! -f ${SS_CONFIG} ]; then
+        ewarn "${SS_CONFIG} does not exist."
+    fi
+}
+
+start() {
+    checkconfig || return 1
+
+    ebegin "Starting Shadowsocks-auto-redir: ${SS_SVCNAME} mode"
+    ${SS_ROUTING} apply ${SS_CONFIG}
+    start-stop-daemon --start --exec ${SS_COMMAND} \
+    -- -c ${SS_CONFIG} -f ${SS_PIDFILE} >/dev/null 2>&1 &
+    eend $?
+}
+
+stop() {
+    checkconfig || return 1
+
+    ebegin "Stopping Shadowsocks-auto-redir"
+    ${SS_ROUTING} clear
+    start-stop-daemon --stop --pidfile ${SS_PIDFILE}
+    eend $?
+}
+

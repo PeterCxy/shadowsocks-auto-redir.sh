@@ -33,7 +33,8 @@ Link itself to `/opt` and install the systemd unit
 
 ```bash
 # Execute as ROOT
-./install.sh link
+./install-systemd.sh link # for systemd
+./install-openrc.sh link # for openrc
 ```
 
 Configuration
@@ -66,6 +67,12 @@ In addition, this script supports some exta fields (under `ss_redir_options`) in
 
 __NOTE: This script does nothing to resolve DNS poisoning. If your network is subject to DNS poisoning, an anti-poisoning DNS server should be used or set up.__
 
+For `OpenRC` users, remember to process your configuration files with the following:
+
+    sudo ./install-openrc.sh config
+
+You can explore the script to see what it does. After reading the script you'll know why I recommend using `1081` as the local port.
+
 Updating
 ---
 
@@ -74,7 +81,8 @@ Switch to the directory of this project
 ```bash
 # Execute as normal user
 git pull
-sudo ./install.sh update
+sudo ./install-systemd.sh update # for systemd
+sudo ./install-openrc.sh update # for openrc
 ```
 
 Uninstallation
@@ -86,5 +94,6 @@ Switch to the directory of this project
 
 ```bash
 # Execute as ROOT
-./install.sh unlink
+./install-systemd.sh unlink # for systemd
+./install-openrc.sh unlink # for openrc
 ```

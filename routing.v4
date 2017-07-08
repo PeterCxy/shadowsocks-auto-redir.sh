@@ -1,0 +1,93 @@
+#!/bin/bash
+
+CONFIG_PATH=$2
+
+echoerr() { echo "$@" 1>&2; }
+
+do_iptables() {
+    if [ "$DEBUG" == "1" ]; then
+        echo "iptables $@"
+    else
+        iptables $@
+    fi
+}
+
+do_ipset() {
+    if [ "$DEBUG" == "1" ]; then
+        echo "ipset $@"
+    else
+        ipset $@
+    fi
+}
+
+clear_rules() {
+    echo "Clearing rules"
+    do_iptables -t nat -D OUTPUT -p tcp -j SHADOWSOCKS
+    do_iptables -t nat -F SHADOWSOCKS
+    do_iptables -t nat -X SHADOWSOCKS
+    do_ipset destroy shadowsocks
+}
+
+apply_rules() {
+    do_iptables -t nat -N SHADOWSOCKS
+
+    # Bypass ips
+    SERVER=`jq -r ".server" $CONFIG_PATH`
+
+    if [[ $SERVER =~ "127."* ]]; then
+        echo "Skipping local address $SERVER"
+    else
+        do_iptables -t nat -A SHADOWSOCKS -d $SERVER -j RETURN
+    fi
+
+    BYPASS_IPS=`jq -r ".ss_redir_options.bypass_ips" $CONFIG_PATH`
+
+    if [[ "$BYPASS_IPS" != "null" ]]; then
+        # Should only iterate when the item is not null
+        BYPASS_IPS=`jq -r ".ss_redir_options.bypass_ips[]" $CONFIG_PATH`
+        for ip in $BYPASS_IPS; do
+            do_iptables -t nat -A SHADOWSOCKS -d $ip -j RETURN
+        done
+    fi
+
+    # Allow connection to preserved networks
+    do_iptables -t nat -A SHADOWSOCKS -d 0.0.0.0/8 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 10.0.0.0/8 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 127.0.0.0/8 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 169.254.0.0/16 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 172.16.0.0/12 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 192.168.0.0/16 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 224.0.0.0/4 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d 240.0.0.0/4 -j RETURN
+
+    # Load bypass route set
+    do_ipset -N shadowsocks hash:net maxelem 65536
+
+    BYPASS_PRESET=`jq -r ".ss_redir_options.bypass_preset" $CONFIG_PATH`
+
+    if [[ "$BYPASS_PRESET" == "chnroute" ]]; then
+        for ip in `cat /opt/shadowsocks-auto-redir/routes/chnroute.txt`; do
+            do_ipset add shadowsocks $ip
+        done
+    fi
+
+    do_iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set shadowsocks dst -j RETURN
+
+    # Redirect to ss-redir port
+    LOCAL_PORT=`jq -r ".local_port" $CONFIG_PATH`
+
+    do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $LOCAL_PORT
+    do_iptables -t nat -A OUTPUT -p tcp -j SHADOWSOCKS
+}
+
+# MUST be run as root
+if [ `id -u` != "0" ]; then
+    echoerr "This script MUST BE run as ROOT"
+    exit 1
+fi
+
+if [[ "$1" == "apply" ]]; then
+    apply_rules
+elif [[ "$1" == "clear" ]]; then
+    clear_rules
+fi
