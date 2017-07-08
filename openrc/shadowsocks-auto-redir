@@ -52,6 +52,8 @@ start() {
 }
 
 stop() {
+    checkconfig || return 1
+
     ebegin "Stopping Shadowsocks-auto-redir"
     ${SS_ROUTING} clear
     start-stop-daemon --stop --pidfile ${SS_PIDFILE}
