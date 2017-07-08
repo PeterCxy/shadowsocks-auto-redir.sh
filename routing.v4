@@ -73,7 +73,7 @@ apply_rules() {
     # Redirect to ss-redir port
     LOCAL_PORT=`jq -r ".local_port" $CONFIG_PATH`
 
-    do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $LOCAL_PORT
+    do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $2
     do_iptables -t nat -A OUTPUT -p tcp -j SHADOWSOCKS
 }
 
