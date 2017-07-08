@@ -1,0 +1,46 @@
+#!/bin/bash
+echoerr() { echo "$@" 1>&2; }
+
+do_iptables() {
+    if [ "$DEBUG" == "1" ]; then
+        echo "ip6tables $@"
+    else
+        ip6tables $@
+    fi
+}
+
+clear_rules() {
+    echo "Clearing rules"
+    do_iptables -t nat -D OUTPUT -p tcp -j SHADOWSOCKS
+    do_iptables -t nat -F SHADOWSOCKS
+    do_iptables -t nat -X SHADOWSOCKS
+    do_ipset destroy shadowsocks
+}
+
+apply_rules() {
+    do_iptables -t nat -N SHADOWSOCKS
+
+    # Allow connection to preserved networks
+    do_iptables -t nat -A SHADOWSOCKS -d ff00::/8 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d fe80::/10 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d fc00::/7 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d ::1/128 -j RETURN
+    do_iptables -t nat -A SHADOWSOCKS -d ::/128 -j RETURN
+
+    # Redirect to ss-redir port
+    LOCAL_PORT=`jq -r ".local_port" $CONFIG_PATH`
+
+    do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $2
+    do_iptables -t nat -A OUTPUT -p tcp -j SHADOWSOCKS
+}
+
+# MUST be run as root
+if [ `id -u` != "0" ]; then
+    echoerr "This script MUST BE run as ROOT"
+    exit 1
+fi
+
+if [[ "$1" == "apply" ]]; then
+    apply_rules
+elif [[ "$1" == "clear" ]]; then
+    clear_rules
