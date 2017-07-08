@@ -67,6 +67,12 @@ In addition, this script supports some exta fields (under `ss_redir_options`) in
 
 __NOTE: This script does nothing to resolve DNS poisoning. If your network is subject to DNS poisoning, an anti-poisoning DNS server should be used or set up.__
 
+For `OpenRC` users, remember to process your configuration files with the following:
+
+    sudo ./install-openrc.sh config
+
+You can explore the script to see what it does. After reading the script you'll know why I recommend using `1081` as the local port.
+
 Updating
 ---
 
