@@ -75,7 +75,8 @@ Switch to the directory of this project
 ```bash
 # Execute as normal user
 git pull
-sudo ./install.sh update
+sudo ./install-systemd.sh update # for systemd
+sudo ./install-openrc.sh update # for openrc
 ```
 
 Uninstallation
@@ -87,5 +88,6 @@ Switch to the directory of this project
 
 ```bash
 # Execute as ROOT
-./install.sh unlink
+./install-systemd.sh unlink # for systemd
+./install-openrc.sh unlink # for openrc
 ```
