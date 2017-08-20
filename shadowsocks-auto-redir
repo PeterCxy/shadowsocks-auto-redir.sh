@@ -1,5 +1,13 @@
 #!/bin/bash
 echoerr() { echo "$@" 1>&2; }
+do_ip6tables() {
+    if [ "$DEBUG" == "1" ]; then
+        echo "ip6tables $@"
+    else
+        ip6tables $@
+    fi
+
+}
 do_iptables() {
     if [ "$DEBUG" == "1" ]; then
         echo "iptables $@"
@@ -27,6 +35,15 @@ clear_rules() {
     do_iptables -t nat -F SHADOWSOCKS
     do_iptables -t nat -X SHADOWSOCKS
     do_ipset destroy shadowsocks
+
+    if [[ "$IPV6" == "true" ]]; then
+        do_iptables -D INPUT -p tcp --dport $LOCAL_PORT -j DROP
+	    do_iptables -D INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
+	    do_ip6tables -D INPUT -p tcp --dport $LOCAL_PORT -j DROP
+	    do_ip6tables -D INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
+        do_ip6tables -t nat -D OUTPUT -p tcp -j REDIRECT --to-port $LOCAL_PORT
+    fi
+
 }
 find_script_path() {
     SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -103,6 +120,18 @@ LOCAL_PORT=`jq -r ".local_port" $CONFIG_PATH`
 do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $LOCAL_PORT
 do_iptables -t nat -A OUTPUT -p tcp -j SHADOWSOCKS
 # TODO: Support UDP as an extension in .ss_redir_options
+
+# IPv6 redirect to IPv4 Shadowsocks
+# Please set local_address to ::
+IPV6=`jq -r ".ss_redir_options.ipv6_to_ipv4" $CONFIG_PATH`
+
+if [[ "$IPV6" == "true" ]]; then
+    do_iptables -I INPUT -p tcp --dport $LOCAL_PORT -j DROP
+	do_iptables -I INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
+	do_ip6tables -I INPUT -p tcp --dport $LOCAL_PORT -j DROP
+	do_ip6tables -I INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
+    do_ip6tables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port $LOCAL_PORT
+fi
 
 # Build ss-redir params
 SS_PARAMS="-c $CONFIG_PATH"
