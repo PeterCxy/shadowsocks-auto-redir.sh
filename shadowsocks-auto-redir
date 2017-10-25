@@ -41,6 +41,7 @@ clear_rules() {
 	    do_iptables -D INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
 	    do_ip6tables -D INPUT -p tcp --dport $LOCAL_PORT -j DROP
 	    do_ip6tables -D INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
+	    do_ip6tables -t nat -D OUTPUT -p tcp -o lo -j RETURN
         do_ip6tables -t nat -D OUTPUT -p tcp -j REDIRECT --to-port $LOCAL_PORT
     fi
 
@@ -71,6 +72,16 @@ elif [ ! -f "$CONFIG_PATH" ]; then
 fi
 
 do_iptables -t nat -N SHADOWSOCKS
+
+# Bypass users
+BYPASS_USERS=`jq -r ".ss_redir_options.bypass_users" $CONFIG_PATH`
+if [[ "$BYPASS_USERS" != "null" ]]; then
+    BYPASS_USERS=`jq -r ".ss_redir_options.bypass_users[]" $CONFIG_PATH`
+    for user in $BYPASS_USERS; do
+        do_iptables -t nat -A SHADOWSOCKS -m owner --uid-owner $user -j RETURN
+        #do_ip6tables -t nat -A OUTPUT -m owner --uid-owner $user -j RETURN
+    done
+fi
 
 # Bypass ips
 SERVER=`jq -r ".server" $CONFIG_PATH`
@@ -130,6 +141,7 @@ if [[ "$IPV6" == "true" ]]; then
 	do_iptables -I INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
 	do_ip6tables -I INPUT -p tcp --dport $LOCAL_PORT -j DROP
 	do_ip6tables -I INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
+	do_ip6tables -t nat -I OUTPUT -p tcp -o lo -j RETURN
     do_ip6tables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port $LOCAL_PORT
 fi
 
