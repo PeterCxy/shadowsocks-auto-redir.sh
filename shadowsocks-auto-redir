@@ -22,6 +22,13 @@ do_ipset() {
         ipset $@
     fi
 }
+do_ip() {
+    if [ "$DEBUG" == "1" ]; then
+        echo "ip $@"
+    else
+        ip $@
+    fi
+}
 do_ss_redir() {
     if [ "$DEBUG" == "1" ]; then
         echo "ss-redir $@"
@@ -35,6 +42,17 @@ clear_rules() {
     do_iptables -t nat -F SHADOWSOCKS
     do_iptables -t nat -X SHADOWSOCKS
     do_ipset destroy shadowsocks
+
+    if [[ "$UDP" == "true" ]]; then
+        do_iptables -t mangle -D PREROUTING -p udp -j SHADOWSOCKS
+        do_iptables -t mangle -D OUTPUT -p udp -j SHADOWSOCKS_MARK
+        do_iptables -t mangle -F SHADOWSOCKS
+        do_iptables -t mangle -X SHADOWSOCKS
+	do_iptables -t mangle -F SHADOWSOCKS_MARK
+	do_iptables -t mangle -X SHADOWSOCKS_MARK
+        do_ip rule del fwmark 1 lookup 100
+        do_ip route del local default dev lo table 100
+    fi
 
     if [[ "$IPV6" == "true" ]]; then
         do_iptables -D INPUT -p tcp --dport $LOCAL_PORT -j DROP
@@ -102,6 +120,9 @@ if [[ "$BYPASS_IPS" != "null" ]]; then
     done
 fi
 
+# UDP
+UDP=`jq -r ".ss_redir_options.udp" $CONFIG_PATH`
+
 # Allow connection to preserved networks
 do_iptables -t nat -A SHADOWSOCKS -d 0.0.0.0/8 -j RETURN
 do_iptables -t nat -A SHADOWSOCKS -d 10.0.0.0/8 -j RETURN
@@ -123,14 +144,35 @@ if [[ "$BYPASS_PRESET" == "chnroute" ]]; then
     done
 fi
 
-do_iptables -t nat -A SHADOWSOCKS -p tcp -m set --match-set shadowsocks dst -j RETURN
+do_iptables -t nat -A SHADOWSOCKS -m set --match-set shadowsocks dst -j RETURN
 
 # Redirect to ss-redir port
 LOCAL_PORT=`jq -r ".local_port" $CONFIG_PATH`
 
 do_iptables -t nat -A SHADOWSOCKS -p tcp -j REDIRECT --to-port $LOCAL_PORT
 do_iptables -t nat -A OUTPUT -p tcp -j SHADOWSOCKS
-# TODO: Support UDP as an extension in .ss_redir_options
+if [[ "$UDP" == "true" ]]; then
+    do_ip rule add fwmark 1 lookup 100
+    do_ip route add local default dev lo table 100
+    do_iptables -t mangle -N SHADOWSOCKS
+    do_iptables -t mangle -A SHADOWSOCKS -p udp -m mark --mark 1/1 -j TPROXY --on-port $LOCAL_PORT --tproxy-mark 1/1
+    do_iptables -t mangle -A PREROUTING -p udp -j SHADOWSOCKS
+    # Force reroute check for locally generated packets to go to te PREROUTING chain
+    do_iptables -t mangle -N SHADOWSOCKS_MARK
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -o lo -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d $SERVER -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 0.0.0.0/8 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 10.0.0.0/8 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 127.0.0.0/8 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 169.254.0.0/16 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 172.16.0.0/12 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 192.168.0.0/16 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 224.0.0.0/4 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -d 240.0.0.0/4 -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -m set --match-set shadowsocks dst -j RETURN
+    do_iptables -t mangle -A SHADOWSOCKS_MARK -p udp ! -o lo -j MARK --set-mark 1
+    do_iptables -t mangle -A OUTPUT -p udp -j SHADOWSOCKS_MARK
+fi
 
 # IPv6 redirect to IPv4 Shadowsocks
 # Please set local_address to ::
@@ -143,6 +185,9 @@ if [[ "$IPV6" == "true" ]]; then
 	do_ip6tables -I INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
 	do_ip6tables -t nat -I OUTPUT -p tcp -o lo -j RETURN
     do_ip6tables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port $LOCAL_PORT
+    if [[ "$UDP" == "true" ]]; then
+        do_iptables -t nat -A OUTPUT -p udp -j REDIRECT --to-port $LOCAL_PORT
+    fi
 fi
 
 # Build ss-redir params
@@ -150,6 +195,10 @@ SS_PARAMS="-c $CONFIG_PATH"
 
 if [[ `jq -r ".ss_redir_options.ota" $CONFIG_PATH` == "true" ]]; then
     SS_PARAMS="-A $SS_PARAMS"
+fi
+
+if [[ "$UDP" == "true" ]]; then
+    SS_PARAMS="-u $SS_PARAMS"
 fi
 
 do_ss_redir $SS_PARAMS
