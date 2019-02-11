@@ -185,9 +185,7 @@ if [[ "$IPV6" == "true" ]]; then
 	do_ip6tables -I INPUT -p tcp --dport $LOCAL_PORT -i lo -j ACCEPT
 	do_ip6tables -t nat -I OUTPUT -p tcp -o lo -j RETURN
     do_ip6tables -t nat -A OUTPUT -p tcp -j REDIRECT --to-port $LOCAL_PORT
-    if [[ "$UDP" == "true" ]]; then
-        do_iptables -t nat -A OUTPUT -p udp -j REDIRECT --to-port $LOCAL_PORT
-    fi
+    # TODO: Implement UDP forwarding for IPv6
 fi
 
 # Build ss-redir params
