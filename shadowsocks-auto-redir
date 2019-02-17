@@ -104,10 +104,20 @@ fi
 # Bypass ips
 SERVER=`jq -r ".server" $CONFIG_PATH`
 
-if [[ $SERVER =~ "127."* ]]; then
-    echo "Skipping local address $SERVER"
+if [[ $SERVER =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if [[ $SERVER =~ "127."* ]]; then
+        echo "Skipping local address $SERVER"
+    else
+        echo "Adding server IP $SERVER to bypass list"
+        do_iptables -t nat -A SHADOWSOCKS -d $SERVER -j RETURN
+    fi
 else
-    do_iptables -t nat -A SHADOWSOCKS -d $SERVER -j RETURN
+    echo "Resolving server domain ${SERVER}"
+    SERVER_IPS=$(drill A "$SERVER" | grep "^${SERVER}\.[[:space:]][0-9]\+[[:space:]]IN[[:space:]]A" | cut -f5)
+    for ip in $SERVER_IPS ; do
+        echo "Adding server IP $ip to bypass list"
+        do_iptables -t nat -A SHADOWSOCKS -d "$ip" -j RETURN
+    done
 fi
 
 BYPASS_IPS=`jq -r ".ss_redir_options.bypass_ips" $CONFIG_PATH`
