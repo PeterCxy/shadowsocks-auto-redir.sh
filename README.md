@@ -39,7 +39,9 @@ Link itself to `/opt` and install the systemd unit
 Configuration
 ---
 
-Now, put your Shadowsocks configuration file into `/etc/shadowsocks/` (__Please use a plain IP address for the server address, not a domain__), for example, `/etc/shadowsocks/config.json`, and then run
+Now, put your Shadowsocks configuration file into `/etc/shadowsocks/`. If your server address is a domain name, please name sure that `drill` is avaliable in your system (package `ldns` in Arch Linux).
+
+For example, `/etc/shadowsocks/config.json`, and then run
 
 ```bash
 # Execute as ROOT
@@ -55,13 +57,19 @@ In addition, this script supports some exta fields (under `ss_redir_options`) in
     "bypass_ips": [
       ...
     ],
+    "bypass_users": [
+      ...
+    ],
     "bypass_preset": "chnroute",
     "ota": true
   }
 ```
 
-`bypass_ips`: A list of extra IPs to which traffic should not go through Shadowsocks proxy (by default, the server IP and the internal IP addresses are excluded from the proxy)
-`bypass_preset`: Include a predefined set of IPs to which traffic should not go through Shadowsocks proxy (currently only `chnroute` available which excludes all Chinese Mainland IPs)
+- `bypass_ips`: A list of extra IPs to which traffic should not go through Shadowsocks proxy (by default, the server IP and the internal IP addresses are excluded from the proxy)
+
+- `bypass_users`: A list of user IDs from whose traffic should not go through Shadowsocks proxy.
+
+- `bypass_preset`: Include a predefined set of IPs to which traffic should not go through Shadowsocks proxy (currently only `chnroute` available which excludes all Chinese Mainland IPs)
 `ota`: Enable One-Time Authentication or not.
 
 __NOTE: This script does nothing to resolve DNS poisoning. If your network is subject to DNS poisoning, an anti-poisoning DNS server should be used or set up.__
